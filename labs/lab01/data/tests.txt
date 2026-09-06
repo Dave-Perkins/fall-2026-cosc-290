@@ -1,20 +1,20 @@
 # test case 1
 g 5
-p 23
+n 23
 a 15
-b 5
-key 11
+b 7
+key 15
 
 # test case 2
 g 7
-p 29
+n 29
 a 17
 b 25
 key 16
 
 # test case 3
 g 11
-p 83
+n 83
 a 14
 b 22
 key 29

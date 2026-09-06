@@ -4,13 +4,13 @@ from dataclasses import dataclass
 @dataclass
 class TestCase:
     g: int
-    p: int
+    n: int
     a: int
     b: int
     key: int
 
 def parse_group(lines: list[str], group_number: int) -> TestCase:
-    """Turn one group of 'label value' lines into a TestCase."""
+    """ Turn one group of 'label value' lines into a TestCase. """
     values = {}
     for line in lines:
         parts = line.split()
@@ -21,19 +21,12 @@ def parse_group(lines: list[str], group_number: int) -> TestCase:
         label, value = parts
         values[label] = int(value)
 
-    expected = {"g", "p", "a", "b", "key"}
-    missing = expected - values.keys()
-    if missing:
-        raise ValueError(
-            f"Test case {group_number}: missing {', '.join(sorted(missing))}"
-        )
-
     return TestCase(
-        g=values["g"], p=values["p"], a=values["a"], b=values["b"], key=values["key"]
+        g=values["g"], n=values["n"], a=values["a"], b=values["b"], key=values["key"]
     )
 
 def read_test_cases(path: str) -> list[TestCase]:
-    """Read each text group in the file. Lines starting with # are comments."""
+    """ Read each text group in the file. Lines starting with # are comments. """
     with open(path) as f:
         text = f.read()
 
@@ -69,7 +62,7 @@ def main() -> None:
     for i, tc in enumerate(test_cases, start=1):
         print(f"Test case {i}:")
         print(f"  g   = {tc.g}")
-        print(f"  p   = {tc.p}")
+        print(f"  n   = {tc.n}")
         print(f"  a   = {tc.a}")
         print(f"  b   = {tc.b}")
         print(f"  key = {tc.key}")
