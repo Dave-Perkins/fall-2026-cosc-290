@@ -28,7 +28,7 @@ def read_program(filename):
 def main():
     if len(sys.argv) != 3:
         print("usage: python3 tm.py <program file> <input tape>")
-        print("example: python3 tm.py tm01.txt 0110")
+        print("example: python3 tm.py tm01.txt #0110")
         sys.exit(1)
     program, accept_states = read_program("programs/" + sys.argv[1])
     tape = list(sys.argv[2])
