@@ -5,3 +5,9 @@ __pycache__/
 diffie_hellman.py
 read_tests.py
 diff_hellman.py 
+# Instructor-only helper files
+claude/
+
+# Scratch code snippets
+codelets/
+labs/lab04/programs/tm02.txt

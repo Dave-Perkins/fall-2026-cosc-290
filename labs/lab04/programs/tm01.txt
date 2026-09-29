@@ -1,0 +1,10 @@
+c This is a sample comment
+accept 2
+
+c Skip the hash symbol
+0 # # R 1
+
+c Do something
+1 0 1 R 1
+1 1 1 R 1
+1 λ λ R 2
