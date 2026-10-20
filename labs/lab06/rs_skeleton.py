@@ -24,7 +24,7 @@ Usage (after copying this file to rs.py):
     python3 rs.py encode 3 1 4 1 5              (k symbols -> codeword)
     python3 rs.py decode 3 1 4 1 5 2 10         (codeword with up to 1 error -> message)
 
-Fill in the five functions marked TODO.  The generator polynomial, the
+Fill in the five functions marked pass.  The generator polynomial, the
 polynomial long division, and main() are finished.
 """
 
