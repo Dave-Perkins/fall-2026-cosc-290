@@ -1,0 +1,337 @@
+<title>Demo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one column of controls above a dense permutation grid; the grid is the page. */
+  :root {
+    --bg: #f7f8f6;
+    --surface: #ffffff;
+    --fg: #1d2420;
+    --muted: #5d6963;
+    --line: #d6dcd8;
+    --accent: #1c5a9e;
+    --accent-ink: #ffffff;
+    --win-bg: #d9f2e1;
+    --win-line: #3c9a62;
+    --win-ink: #15502f;
+    --pick-ring: #1c5a9e;
+    --warn: #a3471b;
+    --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 20px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  label.lbl { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+
+  select, input, textarea, button { font: inherit; color: inherit; }
+  select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  textarea { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; resize: vertical; min-width: 0; }
+  textarea#strategy { min-height: 2.6em; font-size: 1.05rem; }
+  textarea#code { font-family: var(--font-mono); font-size: 0.86rem; min-height: 9em; white-space: pre; overflow-x: auto; }
+  button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: 0.55; cursor: default; }
+  button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .status { color: var(--muted); font-size: 0.92rem; min-height: 1.4em; }
+  .status.warn { color: var(--warn); }
+  .restate { font-size: 1rem; }
+  .restate b { font-weight: 600; }
+
+  .summary { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: baseline; font-variant-numeric: tabular-nums; }
+  .summary .big { font-size: 1.9rem; font-weight: 600; letter-spacing: -0.01em; }
+  .summary .big small { font-size: 1rem; font-weight: 400; color: var(--muted); }
+  .summary .stat { color: var(--muted); }
+  .summary .stat b { color: var(--fg); font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 0.88rem; align-items: center; }
+  .legend .sw { display: inline-block; width: 1.5em; height: 1.1em; vertical-align: -0.2em; border-radius: 3px; margin-right: 4px; }
+  .legend .sw.win { background: var(--win-bg); border: 1px solid var(--win-line); }
+  .legend .sw.pick { border: 2px solid var(--pick-ring); width: 1.1em; }
+  .legend .sw.heat { background: linear-gradient(90deg, rgba(60,154,98,0.1), rgba(60,154,98,0.6)); border: 1px solid var(--line); width: 2.4em; }
+  .row .gap { flex-basis: 100%; height: 0; }
+  @media (min-width: 720px) { .row .gap { display: none; } }
+  .legend label { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
+
+  .grid { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(var(--cellw, 7.5em), 1fr)); }
+  .perm { font-family: var(--font-mono); font-size: 0.92rem; display: flex; gap: 2px; padding: 3px 5px; border-radius: 4px; border: 1px solid transparent; justify-content: center; }
+  .perm span { display: inline-block; width: 1.35em; text-align: center; border-radius: 3px; border: 2px solid transparent; line-height: 1.3; }
+  .perm.win { background: var(--win-bg); border-color: var(--win-line); color: var(--win-ink); }
+  .perm span.pick { border-color: var(--pick-ring); font-weight: 600; }
+  .grid.only-wins .perm:not(.win) { display: none; }
+
+  details summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  code { font-family: var(--font-mono); font-size: 0.9em; }
+  @media (prefers-reduced-motion: no-preference) { .perm { transition: background 0.15s; } }
+</style>
+
+<div class="wrap">
+  <section class="panel">
+    <div class="row">
+      <label class="lbl" for="n">Number of visitors N</label>
+      <select id="n">
+        <option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option>
+      </select>
+      <span class="status" id="nnote"></span>
+      <span class="gap"></span>
+      <label class="lbl" for="mode">Objective</label>
+      <select id="mode">
+        <option value="win" selected>win if the best visitor gets the ad</option>
+        <option value="avg">average score of the visitor who gets the ad</option>
+      </select>
+    </div>
+    <div>
+      <label class="lbl" for="strategy">Strategy, in plain English</label>
+      <textarea id="strategy" rows="2"></textarea>
+    </div>
+    <div class="row">
+      <button class="primary" id="interpret" hidden>Interpret with Claude</button>
+      <button id="stop" hidden>Stop</button>
+      <span class="status" id="aistatus">Open this page through its claude.ai link to turn an English strategy into code. The code box below works anywhere.</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="restate" id="restate"></div>
+    <div>
+      <label class="lbl" for="code">Strategy as code (editable)</label>
+      <textarea id="code" rows="8" spellcheck="false"></textarea>
+    </div>
+    <div class="row">
+      <button class="primary" id="run">Run over all permutations</button>
+      <span class="status" id="runstatus"></span>
+    </div>
+    <details>
+      <summary>How the code is read</summary>
+      <p style="margin:6px 0 0; color: var(--muted); max-width: 70ch;">The box holds the body of <code>function choose(seq)</code>. <code>seq</code> is one arrival order, an array of the visitors' scores 1..N. Return the 0-based index of the visitor who gets the ad, or <code>-1</code> if the ad is never shown. The page runs it once per permutation. Under the first objective it counts a win when <code>seq[index] === N</code>. Under the second it averages <code>seq[index]</code> over all permutations, with <code>-1</code> scoring 0. In both cases a strategy should only compare visitors it has already seen; peeking ahead at <code>seq</code> defeats the point.</p>
+    </details>
+  </section>
+
+  <section class="panel">
+    <div class="summary" id="summary">
+      <span class="big" id="prob">–</span>
+      <span class="stat" id="wins"></span>
+      <span class="stat" id="early"></span>
+      <span class="stat" id="never"></span>
+    </div>
+    <div class="legend">
+      <span id="legend-win"><span class="sw win"></span>winning order (the ad went to visitor N)</span>
+      <span id="legend-heat" hidden><span class="sw heat"></span>darker green means a higher score got the ad</span>
+      <span><span class="sw pick"></span>the visitor who got the ad</span>
+      <label><input type="checkbox" id="onlywins"> show winning orders only</label>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const nSel = $("n"), grid = $("grid"), codeBox = $("code"), strategyBox = $("strategy");
+  const restate = $("restate"), runStatus = $("runstatus"), aiStatus = $("aistatus");
+  const interpretBtn = $("interpret"), stopBtn = $("stop"), runBtn = $("run");
+  const modeSel = $("mode");
+  const mode = () => modeSel.value;
+
+  // ---- permutations, lexicographic ----
+  const permCache = {};
+  function permutations(n) {
+    if (permCache[n]) return permCache[n];
+    const out = [], used = new Array(n + 1).fill(false), cur = [];
+    (function rec() {
+      if (cur.length === n) { out.push(cur.slice()); return; }
+      for (let v = 1; v <= n; v++) {
+        if (used[v]) continue;
+        used[v] = true; cur.push(v); rec(); cur.pop(); used[v] = false;
+      }
+    })();
+    permCache[n] = out;
+    return out;
+  }
+  const fact = (n) => n <= 1 ? 1 : n * fact(n - 1);
+
+
+  // ---- running a strategy ----
+  let lastResults = null;
+  function compile(body) {
+    try { return { fn: new Function("seq", body) }; }
+    catch (e) { return { error: e.message }; }
+  }
+  function runAll() {
+    const n = +nSel.value, perms = permutations(n);
+    const c = compile(codeBox.value);
+    if (c.error) {
+      runStatus.textContent = "The code did not parse: " + c.error;
+      runStatus.classList.add("warn");
+      return;
+    }
+    runStatus.classList.remove("warn");
+    const picks = new Array(perms.length);
+    let wins = 0, early = 0, never = 0, errors = 0, sum = 0;
+    for (let i = 0; i < perms.length; i++) {
+      let idx = -1;
+      try { idx = Math.trunc(Number(c.fn(perms[i].slice()))); } catch (e) { errors++; }
+      if (!(idx >= 0 && idx < n)) idx = -1;
+      picks[i] = idx;
+      if (idx === -1) never++;
+      else if (perms[i][idx] === n) { wins++; sum += n; }
+      else { early++; sum += perms[i][idx]; }
+    }
+    lastResults = { n, perms, picks, wins, early, never, sum };
+    render();
+    runStatus.textContent = errors ? `${errors} permutation${errors === 1 ? "" : "s"} threw an error and counted as never showing the ad.` : `Ran ${perms.length.toLocaleString()} permutations.`;
+    if (errors) runStatus.classList.add("warn");
+  }
+  function render() {
+    const r = lastResults; if (!r) return;
+    const total = r.perms.length, p = r.wins / total, avg = mode() === "avg";
+    if (avg) {
+      $("prob").innerHTML = (r.sum / total).toFixed(4) + ` <small>average score, out of ${r.n}</small>`;
+      $("wins").innerHTML = `<b>${r.wins.toLocaleString()}</b> of ${total.toLocaleString()} went to the best visitor`;
+      $("early").innerHTML = `<b>${r.early.toLocaleString()}</b> went to a lower-scoring visitor`;
+      $("never").innerHTML = `<b>${r.never.toLocaleString()}</b> never showed the ad (score 0)`;
+    } else {
+      $("prob").innerHTML = p.toFixed(4) + " <small>win probability</small>";
+      $("wins").innerHTML = `<b>${r.wins.toLocaleString()}</b> wins of ${total.toLocaleString()}`;
+      $("early").innerHTML = `<b>${r.early.toLocaleString()}</b> spent the ad on a lower-scoring visitor`;
+      $("never").innerHTML = `<b>${r.never.toLocaleString()}</b> never showed the ad`;
+    }
+    $("legend-win").hidden = avg; $("legend-heat").hidden = !avg;
+    grid.style.setProperty("--cellw", (r.n * 1.45 + 1) + "em");
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < total; i++) {
+      const d = document.createElement("div");
+      const pick = r.picks[i];
+      d.className = "perm" + (pick >= 0 && r.perms[i][pick] === r.n ? " win" : "");
+      if (avg && pick >= 0) {
+        const f = r.perms[i][pick] / r.n;
+        d.style.background = `rgba(60,154,98,${(0.1 + 0.5 * f * f).toFixed(3)})`;
+      }
+      const seq = r.perms[i];
+      for (let j = 0; j < r.n; j++) {
+        const s = document.createElement("span");
+        s.textContent = seq[j];
+        if (j === pick) s.className = "pick";
+        d.append(s);
+      }
+      frag.append(d);
+    }
+    grid.replaceChildren(frag);
+  }
+  runBtn.addEventListener("click", runAll);
+  $("onlywins").addEventListener("change", (e) => grid.classList.toggle("only-wins", e.target.checked));
+  nSel.addEventListener("change", () => {
+    $("nnote").textContent = fact(+nSel.value).toLocaleString() + " arrival orders";
+    if (codeBox.value.trim()) runAll(); else showBlank();
+  });
+  modeSel.addEventListener("change", () => { if (codeBox.value.trim()) runAll(); else showBlank(); });
+
+  // ---- Claude interpretation (only inside the claude.ai viewer) ----
+  let sample = null, ctl = null;
+  const errorCopy = {
+    rate_limited: "Claude is busy or your usage limit was reached. Try again in a little while.",
+    session_expired: "Your claude.ai session expired. Sign in again and retry.",
+    refused: "Claude declined that request. Reword the strategy and try again.",
+    empty_completion: "Claude returned nothing. Try a shorter wording.",
+    upstream_error: "The connection to Claude failed. Try again.",
+    prompt_too_large: "That strategy text is too long."
+  };
+  const hideCodes = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
+
+  function buildPrompt(text, n) {
+    const objective = mode() === "avg"
+      ? "The agency's goal is to maximize the average, over all arrival orders, of the score of the visitor who gets the ad. Never showing the ad scores 0, so strategies for this goal usually fall back to the last visitor."
+      : "The agency wins if the ad goes to the visitor scored N.";
+    return `You are translating a plain-English stopping strategy into JavaScript for a classroom demo of the secretary problem.
+
+Setting: N = ${n} users visit a website one at a time. An ad agency has the budget for exactly one targeted ad and wants to show it to the most valuable visitor. Each visitor has a score, and the scores are the integers 1..N in some arrival order (a permutation); larger is better. The agency sees each visitor's score on arrival and must decide immediately whether to show the ad to that visitor or let them pass; a visitor who has passed cannot be targeted later. ${objective}
+
+Write the BODY of a JavaScript function \`function choose(seq)\`:
+- \`seq\` is an array of ${n} distinct integers 1..${n} in arrival order.
+- Return the 0-based index of the visitor who receives the ad, or -1 if the strategy never shows it.
+- Plain ES2020. No comments required. Do not use fetch, DOM, timers, globals, or randomness. Only loop over seq (no unbounded loops).
+- The strategy may only use information available at decision time: when deciding about seq[i], it may look at seq[0..i] but not later entries.
+- Vocabulary: "larger than all previous entries", "beats everything seen so far", "a record", "a new best", "the best visitor so far" all mean strictly greater than every earlier entry in seq. The first visitor counts as a record. "The k-th such visitor" counts records in arrival order. "Second best so far", "in the top two so far", "above the median so far" refer to the visitor's rank among seq[0..i] only. "The last visitor" is seq[seq.length - 1]. "Choose", "pick", "select", "target", "show the ad to" all mean returning that visitor's index.
+- If the sentence is ambiguous, take the most literal reading and say which reading you took in the restatement.
+
+Student's strategy: """${text}"""
+
+Reply with only a JSON object, nothing else, of the form:
+{"restatement": "<one sentence restating the strategy in terms of visitors, scores and the single ad>", "body": "<the function body as a single JSON string, newlines escaped>"}`;
+  }
+  function extractJson(text) {
+    const tries = [text];
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) tries.push(fence[1]);
+    const a = text.indexOf("{"), b = text.lastIndexOf("}");
+    if (a >= 0 && b > a) tries.push(text.slice(a, b + 1));
+    for (const t of tries) { try { return JSON.parse(t); } catch (e) {} }
+    return null;
+  }
+  async function interpret() {
+    const text = strategyBox.value.trim();
+    if (!text) { aiStatus.textContent = "Type a strategy first."; return; }
+    ctl = new AbortController();
+    interpretBtn.disabled = true; stopBtn.hidden = false;
+    aiStatus.classList.remove("warn");
+    aiStatus.textContent = "Thinking...";
+    try {
+      const { text: reply } = await sample(buildPrompt(text, +nSel.value), { modelTier: "default", signal: ctl.signal });
+      const obj = extractJson(reply);
+      if (!obj || typeof obj.body !== "string") {
+        aiStatus.textContent = "Could not read Claude's reply as code. Try rewording the strategy.";
+        aiStatus.classList.add("warn");
+        codeBox.value = "// Raw reply:\n" + reply.split("\n").map((l) => "// " + l).join("\n");
+        return;
+      }
+      restate.innerHTML = "<b>Claude read it as:</b> " + escapeHtml(String(obj.restatement || ""));
+      codeBox.value = obj.body;
+      aiStatus.textContent = "Interpreted. Edit the code if the reading is off, then Run.";
+      runAll();
+    } catch (e) {
+      const code = e && e.code;
+      if (code === "cancelled") { aiStatus.textContent = "Stopped."; }
+      else if (hideCodes.has(code)) {
+        interpretBtn.hidden = true;
+        aiStatus.textContent = "Claude is not available for this page in this view. Write the code by hand in the box below.";
+      } else {
+        aiStatus.textContent = errorCopy[code] || errorCopy.upstream_error;
+        aiStatus.classList.add("warn");
+      }
+    } finally {
+      interpretBtn.disabled = false; stopBtn.hidden = true; ctl = null;
+    }
+  }
+  interpretBtn.addEventListener("click", interpret);
+  stopBtn.addEventListener("click", () => ctl && ctl.abort());
+  strategyBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !interpretBtn.hidden) { e.preventDefault(); interpret(); }
+  });
+
+  (async () => {
+    if (!(window.claude && typeof window.claude.use === "function")) return;
+    try { sample = await window.claude.use("sample"); } catch (e) { sample = null; }
+    if (sample) {
+      interpretBtn.hidden = false;
+      aiStatus.textContent = "Type a strategy and press Enter or Interpret. The first use asks your permission.";
+    }
+  })();
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  // ---- initial state: boxes empty, permutations shown without any strategy ----
+  $("nnote").textContent = fact(+nSel.value).toLocaleString() + " arrival orders";
+  function showBlank() {
+    const n = +nSel.value, perms = permutations(n);
+    lastResults = { n, perms, picks: new Array(perms.length).fill(-1), wins: 0, early: 0, never: 0, sum: 0 };
+    render();
+    $("prob").textContent = "–";
+    for (const id of ["wins", "early", "never"]) $(id).textContent = "";
+  }
+  showBlank();
+})();
+</script>

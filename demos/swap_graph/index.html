@@ -1,0 +1,342 @@
+<title>Permutation Swap Graph</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: a short intro and controls, the layered graph full width (scrolls sideways when wide),
+     then the selected node's details beside a facts table. Same type and palette as the secretary demo. */
+  :root {
+    --bg: #f6f7f5;
+    --surface: #ffffff;
+    --fg: #1d2420;
+    --muted: #5d6963;
+    --line: #d6dcd8;
+    --node: #eef1ee;
+    --node-line: #b9c2bc;
+    --accent: #b4500f;      /* derangements */
+    --accent-ink: #ffffff;
+    --up: #1c5a9e;          /* parents: one swap closer to the identity */
+    --down: #2f7d5a;        /* children: one swap further away */
+    --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151917; --surface: #1e2421; --fg: #e8ece9; --muted: #9aa49e; --line: #343c38;
+      --node: #2a322e; --node-line: #4b5650; --accent: #e8863a; --accent-ink: #1a1a1a;
+      --up: #7bb0ea; --down: #68c094; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151917; --surface: #1e2421; --fg: #e8ece9; --muted: #9aa49e; --line: #343c38;
+    --node: #2a322e; --node-line: #4b5650; --accent: #e8863a; --accent-ink: #1a1a1a;
+    --up: #7bb0ea; --down: #68c094; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: grid; gap: 18px; }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  p { margin: 0; }
+  .intro { color: var(--muted); max-width: 70ch; }
+  .intro b { color: var(--fg); font-weight: 600; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  label.lbl { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  select, button { font: inherit; color: inherit; }
+  select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .row label.chk { display: inline-flex; gap: 6px; align-items: center; }
+  select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 0.88rem; align-items: center; }
+  .legend .sw { display: inline-block; width: 1.4em; height: 1em; vertical-align: -0.15em; border-radius: 4px; margin-right: 5px; border: 1px solid var(--node-line); background: var(--node); }
+  .legend .sw.der { background: var(--accent); border-color: var(--accent); }
+  .legend .sw.up { background: transparent; border: 2px solid var(--up); }
+  .legend .sw.down { background: transparent; border: 2px solid var(--down); }
+
+  .graph { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+  .graph svg { display: block; height: auto; font-family: var(--font-mono); user-select: none; -webkit-user-select: none; }
+  .graph svg.fit { width: 100%; }
+  .edge { stroke: var(--line); stroke-width: 1; fill: none; }
+  .edge.up { stroke: var(--up); stroke-width: 2.5; }
+  .edge.down { stroke: var(--down); stroke-width: 2.5; }
+  .node { cursor: pointer; }
+  .node rect { fill: var(--node); stroke: var(--node-line); stroke-width: 1; }
+  .node text { fill: var(--fg); text-anchor: middle; dominant-baseline: central; }
+  .hl .node.der rect { fill: var(--accent); stroke: var(--accent); }
+  .hl .node.der text { fill: var(--accent-ink); }
+  .node.sel rect { stroke: var(--fg); stroke-width: 2.5; }
+  .node.par rect { stroke: var(--up); stroke-width: 2.5; }
+  .node.chi rect { stroke: var(--down); stroke-width: 2.5; }
+  .node:focus-visible { outline: none; }
+  .node:focus-visible rect { stroke-dasharray: 3 2; }
+  .lvl { fill: var(--fg); font-family: var(--font-body); font-weight: 600; }
+  .lvl-sub, .grp { fill: var(--muted); font-family: var(--font-body); }
+  .grp-line { stroke: var(--node-line); stroke-width: 1; }
+  @media (prefers-reduced-motion: no-preference) { .node rect, .edge { transition: stroke 0.12s, fill 0.12s; } }
+
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .perm-big { font-family: var(--font-mono); font-size: 1.6rem; font-weight: 600; letter-spacing: 0.08em; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 0.95rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; min-width: 0; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-family: var(--font-mono); font-size: 0.88rem; border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .chip.up { border-color: var(--up); }
+  .chip.down { border-color: var(--down); }
+  .chip small { font-family: var(--font-body); color: var(--muted); margin-left: 4px; }
+  .hint { color: var(--muted); font-size: 0.92rem; }
+  .yes { color: var(--accent); font-weight: 600; }
+
+  table { border-collapse: collapse; font-size: 0.92rem; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  .tbl { overflow-x: auto; }
+  ul.notes { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 0.92rem; display: grid; gap: 6px; }
+  ul.notes b { color: var(--fg); font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>Every permutation, one swap at a time</h1>
+    <p class="intro" style="margin-top:6px">Start at the identity. Each edge is one swap of two positions. A permutation sits on the level equal to the <b>fewest swaps</b> needed to reach it, which is n minus its number of cycles. Tap a permutation to see which ones lead to it from the level above and which it leads to below.</p>
+  </div>
+
+  <section class="panel">
+    <div class="row">
+      <label class="lbl" for="n">n</label>
+      <select id="n"><option>3</option><option selected>4</option><option>5</option></select>
+      <span class="hint" id="nnote"></span>
+      <label class="chk"><input type="checkbox" id="hl" checked> highlight derangements</label>
+      <label class="chk"><input type="checkbox" id="fit" checked> fit to width</label>
+    </div>
+    <div class="legend">
+      <span><span class="sw"></span>permutation</span>
+      <span><span class="sw der"></span>derangement (no fixed point)</span>
+      <span><span class="sw up"></span>parents of the selected one</span>
+      <span><span class="sw down"></span>children of the selected one</span>
+    </div>
+    <div class="graph" id="graph"></div>
+  </section>
+
+  <div class="two">
+    <section class="panel" id="details">
+      <p class="hint">Tap a permutation in the graph.</p>
+    </section>
+    <section class="panel">
+      <div class="tbl" id="facts"></div>
+      <ul class="notes" id="notes"></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const SVG = "http://www.w3.org/2000/svg";
+  const nSel = $("n"), hlBox = $("hl"), fitBox = $("fit"), graphBox = $("graph");
+
+  // ---- permutations and cycles ----
+  function permutations(n) {
+    const out = [], used = new Array(n + 1).fill(false), cur = [];
+    (function rec() {
+      if (cur.length === n) { out.push(cur.slice()); return; }
+      for (let v = 1; v <= n; v++) { if (used[v]) continue; used[v] = true; cur.push(v); rec(); cur.pop(); used[v] = false; }
+    })();
+    return out;
+  }
+  function cyclesOf(p) {           // p[i-1] is the value in position i; follow i -> p(i)
+    const n = p.length, seen = new Array(n + 1).fill(false), cs = [];
+    for (let i = 1; i <= n; i++) {
+      if (seen[i]) continue;
+      const c = []; let j = i;
+      while (!seen[j]) { seen[j] = true; c.push(j); j = p[j - 1]; }
+      cs.push(c);
+    }
+    return cs;
+  }
+  function typeLabel(parts) {
+    const counts = {};
+    for (const k of parts) counts[k] = (counts[k] || 0) + 1;
+    const words = ["", "one", "two", "three", "four", "five"];
+    const bits = [];
+    for (const k of Object.keys(counts).map(Number).sort((a, b) => b - a)) {
+      const m = counts[k];
+      if (k === 1) bits.push(m === 1 ? "a fixed point" : `${words[m]} fixed points`);
+      else bits.push(m === 1 ? `a ${k}-cycle` : `${words[m]} ${k}-cycles`);
+    }
+    if (parts.every((k) => k === 1)) return "the identity";
+    return bits.join(" + ");
+  }
+  function cycleNotation(cs) {
+    const long = cs.filter((c) => c.length > 1);
+    if (!long.length) return "identity";
+    return long.map((c) => "(" + c.join(" ") + ")").join("");
+  }
+
+  // ---- build the graph ----
+  function build(n) {
+    const nodes = permutations(n).map((p) => {
+      const cs = cyclesOf(p);
+      const parts = cs.map((c) => c.length).sort((a, b) => b - a);
+      return { p, key: p.join(""), cycles: cs, parts, partsKey: parts.join("+"), level: n - cs.length,
+               der: p.every((v, i) => v !== i + 1), parents: [], children: [] };
+    });
+    const byKey = {}; nodes.forEach((d) => byKey[d.key] = d);
+    for (const d of nodes) {
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const q = d.p.slice(); [q[i], q[j]] = [q[j], q[i]];
+        const e = byKey[q.join("")];
+        if (e.level === d.level + 1) { d.children.push({ node: e, i: i + 1, j: j + 1 }); e.parents.push({ node: d, i: i + 1, j: j + 1 }); }
+      }
+    }
+    const levels = [];
+    for (let L = 0; L < n; L++) {
+      const inLevel = nodes.filter((d) => d.level === L);
+      const groupsByKey = {};
+      for (const d of inLevel) (groupsByKey[d.partsKey] ||= []).push(d);
+      const groups = Object.values(groupsByKey).sort((a, b) => {
+        const x = a[0].parts, y = b[0].parts;
+        for (let k = 0; k < Math.max(x.length, y.length); k++) { const dx = (y[k] || 0) - (x[k] || 0); if (dx) return dx; }
+        return 0;
+      });
+      levels.push({ L, nodes: inLevel, groups });
+    }
+    return { n, nodes, levels, byKey };
+  }
+
+  // ---- draw ----
+  let G = null, selected = null, edgeEls = {}, nodeEls = {};
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(SVG, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function draw() {
+    const n = G.n;
+    const fontSize = n <= 4 ? 13 : 11, charW = fontSize * 0.64;
+    const pillW = Math.round(n * charW + 14), pillH = n <= 4 ? 26 : 22;
+    const gapX = n <= 4 ? 12 : 6, groupGap = 28, levelH = n <= 4 ? 104 : 96;
+    const left = 128, top = 26, bottom = 44;
+    let maxW = 0;
+    for (const lv of G.levels) {
+      let w = 0;
+      lv.groups.forEach((g, gi) => { w += g.length * pillW + (g.length - 1) * gapX + (gi ? groupGap : 0); });
+      lv.width = w; maxW = Math.max(maxW, w);
+    }
+    const W = left + maxW + 24, H = top + (n - 1) * levelH + pillH + bottom;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": `Swap graph of the ${G.nodes.length} permutations of ${n}` });
+    svg.classList.toggle("fit", fitBox.checked);
+    svg.classList.toggle("hl", hlBox.checked);
+    const edgeLayer = el("g", {}, svg), labelLayer = el("g", {}, svg), nodeLayer = el("g", {}, svg);
+    edgeEls = {}; nodeEls = {};
+
+    for (const lv of G.levels) {
+      const y = top + lv.L * levelH + pillH / 2;
+      let x = left + (maxW - lv.width) / 2;
+      el("text", { x: 12, y: y - 8, class: "lvl", "font-size": 13 }, labelLayer).textContent = `level ${lv.L}`;
+      el("text", { x: 12, y: y + 8, class: "lvl-sub", "font-size": 11 }, labelLayer).textContent =
+        `${lv.L} swap${lv.L === 1 ? "" : "s"} · ${lv.nodes.length} perm${lv.nodes.length === 1 ? "" : "s"}`;
+      lv.groups.forEach((g, gi) => {
+        if (gi) x += groupGap;
+        const x0 = x;
+        for (const d of g) { d.x = x + pillW / 2; d.y = y; x += pillW + gapX; }
+        x -= gapX;
+        const label = `${typeLabel(g[0].parts)} · ${g.length}`;
+        el("line", { x1: x0, x2: x, y1: y + pillH / 2 + 6, y2: y + pillH / 2 + 6, class: "grp-line" }, labelLayer);
+        el("text", { x: (x0 + x) / 2, y: y + pillH / 2 + 18, class: "grp", "font-size": 11, "text-anchor": "middle" }, labelLayer).textContent = label;
+      });
+    }
+    for (const d of G.nodes) for (const c of d.children) {
+      const e = el("line", { x1: d.x, y1: d.y + pillH / 2, x2: c.node.x, y2: c.node.y - pillH / 2, class: "edge" }, edgeLayer);
+      edgeEls[d.key + ">" + c.node.key] = e;
+    }
+    for (const d of G.nodes) {
+      const g = el("g", { class: "node" + (d.der ? " der" : ""), tabindex: 0, role: "button", "aria-label": d.key }, nodeLayer);
+      el("rect", { x: d.x - pillW / 2, y: d.y - pillH / 2, width: pillW, height: pillH, rx: 6 }, g);
+      el("text", { x: d.x, y: d.y, "font-size": fontSize }, g).textContent = d.key;
+      g.addEventListener("click", () => select(d));
+      g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(d); } });
+      nodeEls[d.key] = g;
+    }
+    graphBox.replaceChildren(svg);
+  }
+
+  function select(d) {
+    selected = d;
+    for (const k in nodeEls) nodeEls[k].classList.remove("sel", "par", "chi");
+    for (const k in edgeEls) edgeEls[k].classList.remove("up", "down");
+    if (!d) { details(null); return; }
+    nodeEls[d.key].classList.add("sel");
+    for (const p of d.parents) { nodeEls[p.node.key].classList.add("par"); edgeEls[p.node.key + ">" + d.key].classList.add("up"); }
+    for (const c of d.children) { nodeEls[c.node.key].classList.add("chi"); edgeEls[d.key + ">" + c.node.key].classList.add("down"); }
+    details(d);
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function chips(list, cls) {
+    if (!list.length) return `<span class="hint">none</span>`;
+    return `<div class="chips">` + list.map((e) =>
+      `<button class="chip ${cls}" data-key="${e.node.key}">${e.node.key}<small>swap ${e.i}&amp;${e.j}</small></button>`).join("") + `</div>`;
+  }
+  function details(d) {
+    const box = $("details");
+    if (!d) { box.innerHTML = `<p class="hint">Tap a permutation in the graph.</p>`; return; }
+    const fixed = d.p.map((v, i) => (v === i + 1 ? i + 1 : null)).filter((x) => x !== null);
+    const n = G.n;
+    box.innerHTML = `
+      <div class="perm-big">${d.key}</div>
+      <dl class="kv">
+        <dt>cycles</dt><dd><span class="mono">${esc(cycleNotation(d.cycles))}</span> &nbsp;<span class="hint">${esc(typeLabel(d.parts))}, ${d.cycles.length} cycle${d.cycles.length === 1 ? "" : "s"} in all</span></dd>
+        <dt>level</dt><dd>${d.level} = ${n} − ${d.cycles.length}, so ${d.level} swap${d.level === 1 ? "" : "s"} at least</dd>
+        <dt>fixed points</dt><dd>${fixed.length ? "position" + (fixed.length > 1 ? "s " : " ") + fixed.join(", ") : "none"} ${d.der ? `<span class="yes">· a derangement</span>` : ""}</dd>
+        <dt>parents</dt><dd>${chips(d.parents, "up")}</dd>
+        <dt>children</dt><dd>${chips(d.children, "down")}</dd>
+      </dl>
+      <p class="hint">Each parent differs from ${d.key} by one swap of the two positions shown. ${d.parents.length > 1 ? `Having ${d.parents.length} parents is why this is a layered graph and not a tree.` : ""}</p>`;
+    box.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => select(G.byKey[b.dataset.key])));
+  }
+
+  function facts() {
+    const n = G.n;
+    let rows = "";
+    for (const lv of G.levels) {
+      const types = lv.groups.map((g) => `${esc(typeLabel(g[0].parts))} (${g.length}${lv.L ? `, ${g[0].parents.length} parent${g[0].parents.length === 1 ? "" : "s"} each` : ""})`).join("<br>");
+      const ders = lv.nodes.filter((d) => d.der).length;
+      rows += `<tr><td class="num">${lv.L}</td><td class="num">${lv.nodes.length}</td><td>${types}</td><td class="num">${ders}</td></tr>`;
+    }
+    const total = G.nodes.length, ders = G.nodes.filter((d) => d.der).length;
+    $("facts").innerHTML = `<table>
+      <thead><tr><th class="num">level</th><th class="num">size</th><th>cycle types</th><th class="num">derangements</th></tr></thead>
+      <tbody>${rows}<tr><td></td><td class="num"><b>${total}</b></td><td></td><td class="num"><b>${ders}</b></td></tr></tbody></table>`;
+    // edge-count check for each level below the first
+    const notes = [];
+    for (let L = 1; L < n; L++) {
+      const above = G.levels[L - 1], here = G.levels[L];
+      const out = above.groups.map((g) => `${g.length} × ${g[0].children.length}`).join(" + ");
+      const inn = here.groups.map((g) => `${g.length} × ${g[0].parents.length}`).join(" + ");
+      const count = here.nodes.reduce((s, d) => s + d.parents.length, 0);
+      notes.push(`<li><b>Edges into level ${L}:</b> counted from above, ${out} = ${count}; counted from below, ${inn} = ${count}.</li>`);
+    }
+    notes.push(`<li><b>No sideways edges.</b> A swap of two entries in different cycles merges them (down one level); a swap of two entries in the same cycle splits it (up one level).</li>`);
+    notes.push(`<li><b>Level sizes</b> are the unsigned Stirling numbers of the first kind, read from the number of cycles: level j holds the permutations with ${n} − j cycles.</li>`);
+    notes.push(`<li><b>Derangements are not a level.</b> They are the permutations with no 1-cycle, which can sit on several levels.</li>`);
+    $("notes").innerHTML = notes.join("");
+  }
+
+  function rebuild() {
+    const n = +nSel.value;
+    G = build(n); selected = null;
+    $("nnote").textContent = `${G.nodes.length} permutations, ${G.nodes.reduce((s, d) => s + d.children.length, 0)} edges`;
+    draw(); facts(); details(null);
+  }
+  nSel.addEventListener("change", rebuild);
+  hlBox.addEventListener("change", () => graphBox.querySelector("svg").classList.toggle("hl", hlBox.checked));
+  fitBox.addEventListener("change", () => graphBox.querySelector("svg").classList.toggle("fit", fitBox.checked));
+  rebuild();
+})();
+</script>
