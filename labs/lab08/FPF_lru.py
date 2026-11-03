@@ -16,14 +16,10 @@ def fpf(n):
         return 1
     return (n - 1) * (fpf(n - 1) + fpf(n - 2))
 
-# lru_cache is a decorator from the standard library.  lru_cache(maxsize=None)
-# builds the decorator; applying it to fpf returns a wrapper that remembers
-# every result, so each value of n is computed only once.
 fpf = lru_cache(maxsize=None)(fpf)
+fpf = counted(fpf)              
 
-fpf = counted(fpf)              # wrap again, so every call (cache hit or miss) is counted
-
-n = 30
+n = 400
 start = perf_counter()
 result = fpf(n)
 elapsed = perf_counter() - start
