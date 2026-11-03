@@ -1,15 +1,15 @@
 from math import factorial
 from time import perf_counter
 
-def counted(f):
-    def wrapper(n):
-        wrapper.calls += 1
-        return f(n)
-    wrapper.calls = 0
-    return wrapper
+def counted(f):                 # 1. takes a function as its argument
+    def wrapper(n):             # 2. a new function, defined inside; it can see f
+        wrapper.calls += 1      # 3. do the bookkeeping
+        return f(n)             # 4. then call the original
+    wrapper.calls = 0           # 5. attach a counter to the new function
+    return wrapper              # 6. hand the new function back
 
-@counted
-def fpf(n):
+@counted                        # same as writing  fpf = counted(fpf)  after the def
+def fpf(n):                     # so the name fpf now refers to wrapper, not to this body
     if n == 1:
         return 0
     elif n == 2:
