@@ -20,7 +20,6 @@ def fpf(n):
 # builds the decorator; applying it to fpf returns a wrapper that remembers
 # every result, so each value of n is computed only once.
 fpf = lru_cache(maxsize=None)(fpf)
-cached = fpf                    # keep a handle on this wrapper to ask it for statistics later
 
 fpf = counted(fpf)              # wrap again, so every call (cache hit or miss) is counted
 
@@ -31,4 +30,3 @@ elapsed = perf_counter() - start
 print(f"fpf({n}) = {result}")
 print(f"fpf({n}) / {n}! = {result / factorial(n)}")
 print(f"{fpf.calls} calls, took {round(elapsed, 5)} seconds")
-print(cached.cache_info())      # misses = times the body ran, hits = answers from memory
