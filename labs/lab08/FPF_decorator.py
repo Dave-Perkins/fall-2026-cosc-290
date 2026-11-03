@@ -8,13 +8,14 @@ def counted(f):                 # 1. takes a function as its argument
     wrapper.calls = 0           # 5. attach a counter to the new function
     return wrapper              # 6. hand the new function back
 
-@counted                        # same as writing  fpf = counted(fpf)  right after the
-def fpf(n):                     # def fpf block below; the name fpf then refers to wrapper
+def fpf(n):                     
     if n == 1:
         return 0
     elif n == 2:
         return 1
     return (n - 1) * (fpf(n - 1) + fpf(n - 2))
+
+fpf = counted(fpf)
 
 n = 30
 start = perf_counter()
