@@ -8,8 +8,10 @@ def fpf(n):
         return 1
     return (n - 1) * (fpf(n - 1) + fpf(n - 2))
 
-n = 35
+n = 30
 start = perf_counter()
 result = fpf(n)
-elapsed = perf_counter() - start 
-print(f"fpf({n}) = {result/factorial(n)}, took {round(elapsed, 2)} seconds")
+elapsed = perf_counter() - start
+print(f"fpf({n}) = {result}")
+print(f"fpf({n}) / {n}! = {result / factorial(n)}")
+print(f"took {round(elapsed, 2)} seconds")
