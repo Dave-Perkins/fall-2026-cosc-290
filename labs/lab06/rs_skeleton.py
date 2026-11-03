@@ -118,8 +118,8 @@ def locate_error(S, n):
 
     One error M at position i gives S1 = M * X and S2 = M * X^2 with
     X = a^i, so X = S2 / S1.  The position is the i with a^i = X.
-    (Equivalently, i is the root of the error locator L(x) = 1 - X x at
-    x = a^(-i).)  Returns None when no position fits: more than one error.
+    (Equivalently, a^i is the root of the error locator L(x) = x - X.)
+    Returns None when no position fits: more than one error.
     """
     pass   
 
